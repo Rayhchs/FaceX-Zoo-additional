@@ -18,6 +18,10 @@ from head.NPCFace import NPCFace
 from head.SST_Prototype import SST_Prototype
 from head.ArcNegFace import ArcNegFace
 from head.MagFace import MagFace
+from head.AdaFace import AdaFace
+from head.ElasticFace import ElasticArcFace
+from head.ElasticFace import ElasticCosFace
+from head.BroadFace import BroadFace
 
 class HeadFactory:
     """Factory to produce head according to the head_conf.yaml
@@ -107,6 +111,47 @@ class HeadFactory:
             margin = self.head_param['margin'] # cos(theta + margin).
             scale = self.head_param['scale'] # the scaling factor for cosine values.
             head = ArcNegFace(feat_dim, num_class, margin, scale)
+
+        ###         AdaFace        ###
+        elif self.head_type == 'AdaFace':
+            feat_dim = self.head_param['feat_dim'] # dimension of the output features, e.g. 512 
+            num_class = self.head_param['num_class'] # number of classes in the training set.
+            m = self.head_param['m'] 
+            h = self.head_param['h']
+            s = self.head_param['s']
+            t_alpha = self.head_param['t_alpha']
+            head = AdaFace(feat_dim, num_class, m, h, s, t_alpha)
+
+        ###         ElasticCosFace        ###
+        elif self.head_type == 'ElasticCosFace':
+            feat_dim = self.head_param['in_features'] # dimension of the output features, e.g. 512 
+            num_class = self.head_param['num_class'] # number of classes in the training set.
+            s = self.head_param['s'] 
+            m = self.head_param['m']
+            std = self.head_param['std']
+            plus = self.head_param['plus']
+            head = ElasticCosFace(feat_dim, num_class, s, m, std, plus)
+
+        ###         ElasticArcFace        ###
+        elif self.head_type == 'ElasticArcFace':
+            feat_dim = self.head_param['in_features'] # dimension of the output features, e.g. 512 
+            num_class = self.head_param['num_class'] # number of classes in the training set.
+            s = self.head_param['s'] 
+            m = self.head_param['m']
+            std = self.head_param['std']
+            plus = self.head_param['plus']
+            head = ElasticArcFace(feat_dim, num_class, s, m, std, plus)
+
+        ###         BroadFace        ###
+        elif self.head_type == 'BroadFace':
+            feat_dim = self.head_param['in_features'] # dimension of the output features, e.g. 512 
+            num_class = self.head_param['num_class'] # number of classes in the training set.
+            scale_factor = self.head_param['scale_factor'] 
+            margin = self.head_param['margin']
+            queue_size = self.head_param['queue_size']
+            compensate = self.head_param['compensate']
+            head = BroadFace(feat_dim, num_class, scale_factor, margin, queue_size, compensate)
+
         else:
             pass
         return head

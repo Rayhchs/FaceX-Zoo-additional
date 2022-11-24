@@ -1,3 +1,4 @@
+
 <img src="./data/images/logo.png" width="150" >
 
 # FaceX-Zoo
@@ -8,6 +9,11 @@ About the name:
 * "X" - we also aim to provide something beyond face recognition, e.g. face parsing, face lightning.
 * "Zoo" - there include a lot of algorithms and models in this repo.
 ![image](data/images/arch.jpg)
+
+# FaceX-Zoo additional
+There are two additional functions added for FaceX-Zoo.
+1. We add some new heads including [AdaFace](https://arxiv.org/pdf/2204.00964.pdf), [ElasticFace](https://arxiv.org/pdf/2109.09416.pdf) and [BroadFace](https://arxiv.org/pdf/2008.06674.pdf) for FaceX-Zoo. 
+2. To preserve the best weight (best.pt), we add [evaluation function](./test_protocol/cplfw/README.md) for FaceX-Zoo.
 
 # What's New
 - [Oct. 2021] [Swin Transformer](https://arxiv.org/pdf/2103.14030.pdf) is supported now! We obtain a quite promising result of 98.17 in MegaFace rank1 protocol with Swin-S. For more results, pretrained models and logs please refer to [3.1 Experiments of SOTA backbones](training_mode/README.md). For training face recognition model with Swin Transformer, please refer to [swin_training](training_mode/swin_training). Note that the input size is 224\*224 but not 112\*112 and we use AdamW+CosineLRScheduler to optimize it instead of SGD+MultiStepLR.

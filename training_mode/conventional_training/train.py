@@ -3,26 +3,63 @@
 @date: 20201019
 @contact: jun21wangustc@gmail.com
 """
+"""
+Some modification by: Ray Huang
+"""
 import os
 import sys
 import shutil
 import argparse
 import logging as logger
+import random, time 
+
 
 import torch
 from torch import optim
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
+seed = 1000
+random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+
 
 sys.path.append('../../')
 from utils.AverageMeter import AverageMeter
 from data_processor.train_dataset import ImageDataset
 from backbone.backbone_def import BackboneFactory
 from head.head_def import HeadFactory
+from test_protocol.eval_lfw import evaluation
+
 
 logger.basicConfig(level=logger.INFO, 
                    format='%(levelname)s %(asctime)s %(filename)s: %(lineno)d] %(message)s',
                    datefmt='%Y-%m-%d %H:%M:%S')
+
+class LinearEmbedding(nn.Module):
+    def __init__(
+        self, base, feature_size=512, embedding_size=128, l2norm_on_train=True
+    ):
+        super(LinearEmbedding, self).__init__()
+        self.base = base
+        self.linear = nn.Linear(feature_size, embedding_size)
+        self.l2norm_on_train = l2norm_on_train
+
+    def forward(self, x):
+        feat, _ = self.base(x)
+        feat = feat.view(x.size(0), -1)
+        embedding = self.linear(feat)
+
+        if self.training and (not self.l2norm_on_train):
+            return embedding
+
+        embedding = F.normalize(embedding, dim=1, p=2)
+        return embedding
+
 
 class FaceModel(torch.nn.Module):
     """Define a traditional face model which contains a backbone and a head.
@@ -31,7 +68,7 @@ class FaceModel(torch.nn.Module):
         backbone(object): the backbone of face model.
         head(object): the head of face model.
     """
-    def __init__(self, backbone_factory, head_factory):
+    def __init__(self, backbone_factory, head_factory, conf, pretrain_state=None):
         """Init face model by backbone factorcy and head factory.
         
         Args:
@@ -41,10 +78,26 @@ class FaceModel(torch.nn.Module):
         super(FaceModel, self).__init__()
         self.backbone = backbone_factory.get_backbone()
         self.head = head_factory.get_head()
+        self.head_type = conf.head_type
+        self.pretrain_state = pretrain_state
+        if self.head_type.lower() == 'broadface':
+            self.backbone.load_state_dict(self.pretrain_state)
 
     def forward(self, data, label):
-        feat = self.backbone.forward(data)
-        pred = self.head.forward(feat, label)
+        if self.head_type.lower() == 'adaface':
+            feat, norm = self.backbone.forward(data)
+            pred = self.head.forward(feat, norm, label)
+
+        elif self.head_type.lower() == 'elasticcosface' or self.head_type.lower() == 'elasticarcface':
+            output, _ = self.backbone.forward(data)
+            feat = F.normalize(output)
+            pred = self.head.forward(feat, label)
+        elif self.head_type.lower() == 'broadface':
+            feat, _ = self.backbone.forward(data)
+            pred = self.head.forward(feat, label)
+        else:
+            feat, _ = self.backbone.forward(data)
+            pred = self.head.forward(feat, label)
         return pred
 
 def get_lr(optimizer):
@@ -53,7 +106,7 @@ def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
 
-def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf):
+def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_meter, conf, eval_value):
     """Tain one epoch by traditional training.
     """
     for batch_idx, (images, labels) in enumerate(data_loader):
@@ -68,6 +121,10 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
             outputs, loss_g = model.forward(images, labels)
             loss_g = torch.mean(loss_g)
             loss = criterion(outputs, labels) + loss_g
+        elif conf.head_type == 'BroadFace':
+            loss = model.forward(images, labels)
+            loss = torch.unsqueeze(loss, 0)
+            loss = torch.sum(loss) / 4 ### For 4 GPUs
         else:
             outputs = model.forward(images, labels)
             loss = criterion(outputs, labels)
@@ -93,11 +150,37 @@ def train_one_epoch(data_loader, model, optimizer, criterion, cur_epoch, loss_me
             }
             torch.save(state, os.path.join(conf.out_dir, saved_name))
             logger.info('Save checkpoint %s to disk.' % saved_name)
+            try:
+                eval_output = evaluation(test_set='CPLFW', data_conf_file='../../test_protocol/data_conf.yaml', 
+                                         backbone_type=conf.backbone_type, backbone_conf_file=conf.backbone_conf_file,
+                                         model_path=os.path.join(conf.out_dir, saved_name), batch_size=512, head_type=conf.head_type)
+                os.remove(os.path.join(conf.out_dir, saved_name))
+                if eval_output >= eval_value:
+                    torch.save(state, os.path.join(conf.out_dir, 'best.pt'))
+                    logger.info('Save checkpoint %s to disk.' % 'best.pt')
+                    eval_value = eval_output
+                logger.info(f'CPLFW accuracy: {eval_output}')
+            except:
+                logger.info('best.pt not saved')
+            logger.info(f'CPLFW accuracy: {eval_output}')
+
     saved_name = 'Epoch_%d.pt' % cur_epoch
     state = {'state_dict': model.module.state_dict(), 
              'epoch': cur_epoch, 'batch_id': batch_idx}
     torch.save(state, os.path.join(conf.out_dir, saved_name))
     logger.info('Save checkpoint %s to disk...' % saved_name)
+    try:
+        eval_output = evaluation(test_set='CPLFW', data_conf_file='../../test_protocol/data_conf.yaml', 
+                                    backbone_type=conf.backbone_type, backbone_conf_file=conf.backbone_conf_file,
+                                    model_path=os.path.join(conf.out_dir, saved_name), batch_size=512, head_type=conf.head_type)
+        if eval_output >= eval_value:
+            torch.save(state, os.path.join(conf.out_dir, 'best.pt'))
+            logger.info('Save checkpoint %s to disk.' % 'best.pt')
+            eval_value = eval_output
+        logger.info(f'CPLFW accuracy: {eval_output}')
+    except:
+        logger.info('best.pt not saved')
+    return eval_value
 
 def train(conf):
     """Total training procedure.
@@ -106,14 +189,27 @@ def train(conf):
                              conf.batch_size, True, num_workers = 4)
     conf.device = torch.device('cuda:0')
     criterion = torch.nn.CrossEntropyLoss().cuda(conf.device)
-    backbone_factory = BackboneFactory(conf.backbone_type, conf.backbone_conf_file)    
+    backbone_factory = BackboneFactory(conf.backbone_type, conf.backbone_conf_file, conf.head_type)    
     head_factory = HeadFactory(conf.head_type, conf.head_conf_file)
-    model = FaceModel(backbone_factory, head_factory)
+    if not conf.head_type == 'BroadFace':
+        model = FaceModel(backbone_factory, head_factory, conf)
+
     ori_epoch = 0
     if conf.resume:
         ori_epoch = torch.load(args.pretrain_model)['epoch'] + 1
         state_dict = torch.load(args.pretrain_model)['state_dict']
-        model.load_state_dict(state_dict)
+        if not conf.head_type == 'BroadFace':
+            model.load_state_dict(state_dict)
+        else:
+            backbone = backbone_factory.get_backbone()
+            model_dict = backbone.state_dict()
+            new_pretrained_dict = {}
+            for k in model_dict:
+                new_pretrained_dict[k] = state_dict['backbone.'+k]
+            model_dict.update(new_pretrained_dict)
+            model = FaceModel(backbone_factory, head_factory, conf, model_dict)
+
+    # model = model.cuda()
     model = torch.nn.DataParallel(model).cuda()
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = optim.SGD(parameters, lr = conf.lr, 
@@ -122,9 +218,10 @@ def train(conf):
         optimizer, milestones = conf.milestones, gamma = 0.1)
     loss_meter = AverageMeter()
     model.train()
+    eval_value = 0
     for epoch in range(ori_epoch, conf.epoches):
-        train_one_epoch(data_loader, model, optimizer, 
-                        criterion, epoch, loss_meter, conf)
+        eval_value = train_one_epoch(data_loader, model, optimizer, 
+                        criterion, epoch, loss_meter, conf, eval_value)
         lr_schedule.step()                        
 
 if __name__ == '__main__':
@@ -165,8 +262,10 @@ if __name__ == '__main__':
                       help = 'The path of pretrained model')
     conf.add_argument('--resume', '-r', action = 'store_true', default = False, 
                       help = 'Whether to resume from a checkpoint.')
+
     args = conf.parse_args()
     args.milestones = [int(num) for num in args.step.split(',')]
+
     if not os.path.exists(args.out_dir):
         os.makedirs(args.out_dir)
     if not os.path.exists(args.log_dir):

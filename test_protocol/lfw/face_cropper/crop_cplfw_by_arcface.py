@@ -11,7 +11,8 @@ import multiprocessing
 
 import cv2
 sys.path.append('/export/home/wangjun492/wj_armory/faceX-Zoo/face_sdk')
-from core.image_cropper.arcface_face_recognition.FaceRecImageCropper import FaceRecImageCropper
+from core.image_cropper.arcface_cropper.FaceRecImageCropper import FaceRecImageCropper
+# from core.image_cropper.arcface_face_recognition.FaceRecImageCropper import FaceRecImageCropper
 
 def crop_cplfw(cplfw_root, target_folder):
     face_cropper = FaceRecImageCropper()
@@ -39,5 +40,5 @@ def crop_cplfw(cplfw_root, target_folder):
         
 if __name__ == '__main__':
     cplfw_root = '/export/home/wangjun492/wj_armory/faceX-Zoo/face_recognition/face_evaluation/cplfw/data/images'
-    target_folder = '/export/home/wangjun492/wj_armory/faceX-Zoo/face_recognition/face_evaluation/cplfw/cplfw_crop'
+    target_folder = '/export/home/wangjun492/wj_armory/faceX-Zoo/face_recognition/face_evaluation/cplfw/croped'
     crop_cplfw(cplfw_root, target_folder)

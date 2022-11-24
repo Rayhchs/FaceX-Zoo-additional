@@ -4,6 +4,7 @@
 @contact: jun21wangustc@gmail.com
 """
 
+
 import os
 import sys
 import numpy as np
@@ -16,7 +17,7 @@ class LFWEvaluator(object):
         pair_list(list): the pair list given by PairsParser.
         feature_extractor(object): a feature extractor.
     """
-    def __init__(self, data_loader, pairs_parser_factory, feature_extractor):
+    def __init__(self, data_loader, pairs_parser_factory, feature_extractor, prename):
         """Init LFWEvaluator.
 
         Args:
@@ -29,9 +30,11 @@ class LFWEvaluator(object):
         pairs_parser = pairs_parser_factory.get_parser()
         self.pair_list = pairs_parser.parse_pairs()
         self.feature_extractor = feature_extractor
+        self.prename = prename
 
     def test(self, model):
         image_name2feature = self.feature_extractor.extract_online(model, self.data_loader)
+        # print(image_name2feature)
         mean, std = self.test_one_model(self.pair_list, image_name2feature)
         return mean, std
 
@@ -49,15 +52,21 @@ class LFWEvaluator(object):
         """
         subsets_score_list = np.zeros((10, 600), dtype = np.float32)
         subsets_label_list = np.zeros((10, 600), dtype = np.int8)
+
         for index, cur_pair in enumerate(test_pair_list):
             cur_subset = index // 600
             cur_id = index % 600
-            image_name1 = cur_pair[0]
-            image_name2 = cur_pair[1]
+            ### Windows
+            image_name1 = self.prename+cur_pair[0]
+            image_name2 = self.prename+cur_pair[1]
+            # image_name1 = cur_pair[0]
+            # image_name2 = cur_pair[1]
+
             label = cur_pair[2]
             subsets_label_list[cur_subset][cur_id] = label
             feat1 = image_name2feature[image_name1]
             feat2 = image_name2feature[image_name2]
+
             if not is_normalize:
                 feat1 = feat1 / np.linalg.norm(feat1)
                 feat2 = feat2 / np.linalg.norm(feat2)
@@ -69,6 +78,7 @@ class LFWEvaluator(object):
         for subset_idx in range(10):
             test_score_list = subsets_score_list[subset_idx]
             test_label_list = subsets_label_list[subset_idx]
+
             subset_train[subset_idx] = False
             train_score_list = subsets_score_list[subset_train].flatten()
             train_label_list = subsets_label_list[subset_train].flatten()

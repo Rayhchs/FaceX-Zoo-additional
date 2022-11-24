@@ -73,11 +73,12 @@ if __name__ == '__main__':
     conf.add_argument('--output_path', type = str, default = 'mv_epoch_8.onnx',
                       help = 'The output path of onnx model')
     conf.add_argument('--opset', type=int, default=11, help='opset version.')
+    conf.add_argument('--head_type', type=str, default='BroadFace_best', help='Be Sure to change head type if you use AdaFace for training')
     args = conf.parse_args()
     image1 = 'test_images/11-FaceId-0_align.jpg'
     image2 = 'test_images/12-FaceId-0_align.jpg'
     
-    model = MobileFaceNet(512, 7, 7)
+    model = MobileFaceNet(512, 7, 7, args.head_type)
     model_dict = model.state_dict()
     pretrained_dict = torch.load(args.model_path)['state_dict']
     new_pretrained_dict = {}

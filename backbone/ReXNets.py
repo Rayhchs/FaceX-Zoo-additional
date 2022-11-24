@@ -132,11 +132,11 @@ class LinearBottleneck(nn.Module):
         return out
 
 class ReXNetV1(nn.Module):
-    def __init__(self, input_ch=16, final_ch=180, width_mult=1.0, depth_mult=1.0, 
+    def __init__(self, head_type, input_ch=16, final_ch=180, width_mult=1.0, depth_mult=1.0, 
                  use_se=True, se_ratio=12, out_h=7, out_w=7, feat_dim=512,
                  dropout_ratio=0.2, bn_momentum=0.9):
         super(ReXNetV1, self).__init__()
-
+        self.head_type = head_type
         layers = [1, 2, 2, 3, 3, 5]
         strides = [1, 2, 2, 2, 1, 2]
         use_ses = [False, False, True, True, True, True]
@@ -192,4 +192,9 @@ class ReXNetV1(nn.Module):
     def forward(self, x):
         x = self.features(x)
         x = self.output_layer(x)
-        return x
+        norm = torch.norm(x, 2, 1, True)
+        output = torch.div(x, norm)
+        if self.head_type.lower() == 'adaface':
+            return output, norm
+        else:
+            return x, norm

@@ -9,6 +9,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
+import random
+sys.path.append('../../')
+seed = 1000
+random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
 
 
 def channel_shuffle(x, groups):
@@ -402,9 +409,10 @@ class Flatten(nn.Module):
 
 
 class TF_NAS_A(nn.Module):
-	def __init__(self, out_h, out_w, feat_dim, drop_ratio=0.0):
+	def __init__(self, out_h, out_w, feat_dim, head_type, drop_ratio=0.0):
 		super(TF_NAS_A, self).__init__()
 		self.drop_ratio = drop_ratio
+		self.head_type = head_type
 
 		self.first_stem  = ConvLayer(3, 32, kernel_size=3, stride=1, act_func='relu')
 		self.second_stem = MBInvertedResBlock(32, 32, 8, 16, kernel_size=3, stride=1, act_func='relu')
@@ -448,23 +456,28 @@ class TF_NAS_A(nn.Module):
 		self._initialization()
 
 	def forward(self, x):
-                x = self.first_stem(x)
-                x = self.second_stem(x)
-                for block in self.stage1:
-                        x = block(x)
-                for block in self.stage2:
-                        x = block(x)
-                for block in self.stage3:
-                        x = block(x)
-                for block in self.stage4:
-                        x = block(x)
-                for block in self.stage5:
-                        x = block(x)
-                for block in self.stage6:
-                        x = block(x)
-                x = self.feature_mix_layer(x)
-                x = self.output_layer(x)
-                return x
+		x = self.first_stem(x)
+		x = self.second_stem(x)
+		for block in self.stage1:
+				x = block(x)
+		for block in self.stage2:
+				x = block(x)
+		for block in self.stage3:
+				x = block(x)
+		for block in self.stage4:
+				x = block(x)
+		for block in self.stage5:
+				x = block(x)
+		for block in self.stage6:
+				x = block(x)
+		x = self.feature_mix_layer(x)
+		x = self.output_layer(x)
+		norm = torch.norm(x, 2, 1, True)
+		output = torch.div(x, norm)
+		if self.head_type.lower() == 'adaface':
+			return output, norm
+		else:
+			return x, norm
 
 	def _initialization(self):
 		for m in self.modules():

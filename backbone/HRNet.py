@@ -255,8 +255,9 @@ blocks_dict = {
 
 class HighResolutionNet(nn.Module):
 
-    def __init__(self, cfg, **kwargs):
+    def __init__(self, cfg, head_type, **kwargs):
         super(HighResolutionNet, self).__init__()
+        self.head_type = head_type
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1,
                                bias=False)
@@ -496,7 +497,12 @@ class HighResolutionNet(nn.Module):
         y = self.classifier(y)
         '''
         y = self.output_layer(y)
-        return y
+        norm = torch.norm(y, 2, 1, True)
+        output = torch.div(y, norm)
+        if self.head_type.lower() == 'adaface':
+            return output, norm
+        else:
+            return y, norm
 
     def init_weights(self, pretrained='',):
         logger.info('=> init weights from normal distribution')

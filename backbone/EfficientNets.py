@@ -771,12 +771,13 @@ class EfficientNet(nn.Module):
         >>> outputs = model(inputs)
     """
 
-    def __init__(self, out_h, out_w, feat_dim, blocks_args=None, global_params=None):
+    def __init__(self, out_h, out_w, feat_dim, head_type, blocks_args=None, global_params=None):
         super().__init__()
         assert isinstance(blocks_args, list), 'blocks_args should be a list'
         assert len(blocks_args) > 0, 'block args must be greater than 0'
         self._global_params = global_params
         self._blocks_args = blocks_args
+        self.head_type = head_type
 
         # Batch norm parameters
         bn_mom = 1 - self._global_params.batch_norm_momentum
@@ -937,7 +938,12 @@ class EfficientNet(nn.Module):
             #x = self._fc(x)
         '''
         x = self.output_layer(x)
-        return x
+        norm = torch.norm(x, 2, 1, True)
+        output = torch.div(x, norm)
+        if self.head_type.lower() == 'adaface':
+            return output, norm
+        else:
+            return x, norm
 
     @classmethod
     def from_name(cls, model_name, in_channels=3, **override_params):

@@ -19,7 +19,7 @@ from backbone.resnest.resnest import ResNeSt
 from backbone.ReXNets import ReXNetV1
 from backbone.LightCNN import LightCNN
 from backbone.RepVGG import RepVGG
-from backbone.Swin_Transformer import SwinTransformer
+# from backbone.Swin_Transformer import SwinTransformer
 
 class BackboneFactory:
     """Factory to produce backbone according the backbone_conf.yaml.
@@ -28,8 +28,9 @@ class BackboneFactory:
         backbone_type(str): which backbone will produce.
         backbone_param(dict):  parsed params and it's value. 
     """
-    def __init__(self, backbone_type, backbone_conf_file):
+    def __init__(self, backbone_type, backbone_conf_file, head_type):
         self.backbone_type = backbone_type
+        self.head_type = head_type
         with open(backbone_conf_file) as f:
             backbone_conf = yaml.load(f, Loader=yaml.FullLoader)
             self.backbone_param = backbone_conf[backbone_type]
@@ -41,7 +42,7 @@ class BackboneFactory:
             feat_dim = self.backbone_param['feat_dim'] # dimension of the output features, e.g. 512.
             out_h = self.backbone_param['out_h'] # height of the feature map before the final features.
             out_w = self.backbone_param['out_w'] # width of the feature map before the final features.
-            backbone = MobileFaceNet(feat_dim, out_h, out_w)
+            backbone = MobileFaceNet(feat_dim, out_h, out_w, self.head_type)
         elif self.backbone_type == 'ResNet':
             depth = self.backbone_param['depth'] # depth of the ResNet, e.g. 50, 100, 152.
             drop_ratio = self.backbone_param['drop_ratio'] # drop out ratio.
@@ -61,18 +62,18 @@ class BackboneFactory:
             blocks_args, global_params = efficientnet(
                 width_coefficient=width, depth_coefficient=depth, 
                 dropout_rate=drop_ratio, image_size=image_size)
-            backbone = EfficientNet(out_h, out_w, feat_dim, blocks_args, global_params)
+            backbone = EfficientNet(out_h, out_w, feat_dim, self.head_type, blocks_args, global_params)
         elif self.backbone_type == 'HRNet':
             config = {}
             config['MODEL'] = self.backbone_param
-            backbone = HighResolutionNet(config)
+            backbone = HighResolutionNet(config, self.head_type)
         elif self.backbone_type == 'GhostNet':
             width = self.backbone_param['width']
             drop_ratio = self.backbone_param['drop_ratio'] # drop out ratio.
             feat_dim = self.backbone_param['feat_dim'] # dimension of the output features, e.g. 512.
             out_h = self.backbone_param['out_h'] # height of the feature map before the final features.
             out_w = self.backbone_param['out_w'] # width of the feature map before the final feature
-            backbone = GhostNet(width, drop_ratio, feat_dim, out_h, out_w)
+            backbone = GhostNet(self.head_type, width, drop_ratio, feat_dim, out_h, out_w)
         elif self.backbone_type == 'AttentionNet':
             stage1_modules = self.backbone_param['stage1_modules'] # the number of attention modules in stage1.
             stage2_modules = self.backbone_param['stage2_modules'] # the number of attention modules in stage2.
@@ -82,20 +83,20 @@ class BackboneFactory:
             out_w = self.backbone_param['out_w'] # width of the feature map before the final features.
             backbone = ResidualAttentionNet(
                 stage1_modules, stage2_modules, stage3_modules,
-                feat_dim, out_h, out_w)
+                feat_dim, out_h, out_w, self.head_type)
         elif self.backbone_type == 'TF-NAS':
             drop_ratio = self.backbone_param['drop_ratio'] # drop out ratio.
             out_h = self.backbone_param['out_h'] # height of the feature map before the final features.
             out_w = self.backbone_param['out_w'] # width of the feature map before the final features.
             feat_dim = self.backbone_param['feat_dim'] # dimension of the output features, e.g. 512.
-            backbone = TF_NAS_A(out_h, out_w, feat_dim, drop_ratio)
+            backbone = TF_NAS_A(out_h, out_w, feat_dim, self.head_type, drop_ratio)
         elif self.backbone_type == 'ResNeSt':
             depth = self.backbone_param['depth'] # depth of the ResNet, e.g. 50, 100, 152.
             drop_ratio = self.backbone_param['drop_ratio'] # drop out ratio.
             feat_dim = self.backbone_param['feat_dim'] # dimension of the output features, e.g. 512.
             out_h = self.backbone_param['out_h'] # height of the feature map before the final features.
             out_w = self.backbone_param['out_w'] # width of the feature map before the final features.
-            backbone = ResNeSt(depth, drop_ratio, feat_dim, out_h, out_w)
+            backbone = ResNeSt(depth, drop_ratio, self.head_type, feat_dim, out_h, out_w)
         elif self.backbone_type == 'ReXNet':
             input_ch = self.backbone_param['input_ch']
             final_ch = self.backbone_param['final_ch']
@@ -107,7 +108,7 @@ class BackboneFactory:
             out_w = self.backbone_param['out_w']
             feat_dim = self.backbone_param['feat_dim']
             dropout_ratio = self.backbone_param['dropout_ratio']
-            backbone = ReXNetV1(input_ch, final_ch, width_mult, depth_mult, use_se, se_ratio,
+            backbone = ReXNetV1(self.head_type, input_ch, final_ch, width_mult, depth_mult, use_se, se_ratio,
                                 out_h, out_w, feat_dim, dropout_ratio)
         elif self.backbone_type == 'LightCNN':
             depth = self.backbone_param['depth']
@@ -130,7 +131,7 @@ class BackboneFactory:
             feat_dim = self.backbone_param['feat_dim']            
             backbone = RepVGG([blocks1, blocks2, blocks3, blocks4], 
                               [width1, width2, width3, width4],
-                              feat_dim, out_h, out_w)
+                              self.head_type, feat_dim, out_h, out_w)
         elif self.backbone_type == 'SwinTransformer':
             img_size = self.backbone_param['img_size']
             patch_size= self.backbone_param['patch_size']

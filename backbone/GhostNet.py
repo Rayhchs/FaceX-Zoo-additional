@@ -176,8 +176,9 @@ class GhostBottleneck(nn.Module):
 
 
 class GhostNet(nn.Module):
-    def __init__(self, width=1.0, drop_ratio=0.2, feat_dim=512, out_h=7, out_w=7):
+    def __init__(self, head_type, width=1.0, drop_ratio=0.2, feat_dim=512, out_h=7, out_w=7):
         super(GhostNet, self).__init__()
+        self.head_type = head_type
         # setting of inverted residual blocks
         self.cfgs = [
             # k, t, c, SE, s 
@@ -245,4 +246,9 @@ class GhostNet(nn.Module):
         x = self.act1(x)
         x = self.blocks(x)
         x = self.output_layer(x)
-        return x
+        norm = torch.norm(x, 2, 1, True)
+        output = torch.div(x, norm)
+        if self.head_type.lower() == 'adaface':
+            return output, norm
+        else:
+            return x, norm

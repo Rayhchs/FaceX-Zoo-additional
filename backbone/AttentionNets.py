@@ -199,8 +199,9 @@ class AttentionModule_stage3(nn.Module):
         return out_last
 
 class ResidualAttentionNet(nn.Module):
-    def __init__(self, stage1_modules, stage2_modules, stage3_modules, feat_dim, out_h, out_w):
+    def __init__(self, stage1_modules, stage2_modules, stage3_modules, feat_dim, out_h, out_w, head_type):
         super(ResidualAttentionNet, self).__init__()
+        self.head_type = head_type
         self.conv1 = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias = False),
             nn.BatchNorm2d(64),
@@ -237,4 +238,9 @@ class ResidualAttentionNet(nn.Module):
         out = self.conv1(x)
         out = self.attention_body(out)
         out = self.output_layer(out)
-        return out
+        norm = torch.norm(out, 2, 1, True)
+        output = torch.div(out, norm)
+        if self.head_type.lower() == 'adaface':
+            return output, norm
+        else:
+            return out, norm

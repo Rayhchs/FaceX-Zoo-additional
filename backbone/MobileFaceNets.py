@@ -66,8 +66,9 @@ class Residual(Module):
         return self.model(x)
 
 class MobileFaceNet(Module):
-    def __init__(self, embedding_size, out_h, out_w):
+    def __init__(self, embedding_size, out_h, out_w, head_type):
         super(MobileFaceNet, self).__init__()
+        self.head_type = head_type
         self.conv1 = Conv_block(3, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1))
         self.conv2_dw = Conv_block(64, 64, kernel=(3, 3), stride=(1, 1), padding=(1, 1), groups=64)
         self.conv_23 = Depth_Wise(64, 64, kernel=(3, 3), stride=(2, 2), padding=(1, 1), groups=128)
@@ -98,4 +99,9 @@ class MobileFaceNet(Module):
         out = self.conv_6_flatten(out)
         out = self.linear(out)
         out = self.bn(out)
-        return out
+        norm = torch.norm(out, 2, 1, True)
+        output = torch.div(out, norm)
+        if self.head_type.lower() == 'adaface':
+            return output, norm
+        else:
+            return out, norm

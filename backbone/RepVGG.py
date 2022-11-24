@@ -157,10 +157,11 @@ class RepVGGBlock(nn.Module):
 
 class RepVGG(nn.Module):
 
-    def __init__(self, num_blocks, width_multiplier, feat_dim=512, out_h=7, out_w=7, override_groups_map=None, deploy=False, use_se=False):
+    def __init__(self, num_blocks, width_multiplier, head_type, feat_dim=512, out_h=7, out_w=7, override_groups_map=None, deploy=False, use_se=False):
         super(RepVGG, self).__init__()
 
         assert len(width_multiplier) == 4
+        self.head_type = head_type
 
         self.deploy = deploy
         self.override_groups_map = override_groups_map or dict()
@@ -199,7 +200,12 @@ class RepVGG(nn.Module):
         out = self.stage3(out)
         out = self.stage4(out)
         out = self.output_layer(out)
-        return out
+        norm = torch.norm(out, 2, 1, True)
+        output = torch.div(out, norm)
+        if self.head_type.lower() == 'adaface':
+            return output, norm
+        else:
+            return out, norm
 
 optional_groupwise_layers = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]
 g2_map = {l: 2 for l in optional_groupwise_layers}

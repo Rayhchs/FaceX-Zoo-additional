@@ -28,9 +28,9 @@ MagFace:
     scale: 64
     l_a: 10
     u_a: 110
-    l_margin: 0.45
+    l_margin: 0.4
     u_margin: 0.8
-    lamda: 20
+    lamda: 35
 
 CircleLoss:
     feat_dim: 512
@@ -70,3 +70,35 @@ ArcNegFace:
     num_class: 72778
     margin: 0.5
     scale: 64
+
+AdaFace:
+    feat_dim: 512
+    num_class: 72778
+    m: 0.4
+    h: 0.333
+    s: 64.0
+    t_alpha: 0.01
+
+ElasticCosFace:
+    in_features: 512
+    num_class: 72778
+    s: 64.0
+    m: 0.35
+    std: 0.025
+    plus: True
+
+ElasticArcFace:
+    in_features: 512
+    num_class: 72778
+    s: 64.0
+    m: 0.50
+    std: 0.0175 
+    plus: True
+
+BroadFace:
+    in_features: 512
+    num_class: 72778
+    scale_factor: 64.0
+    margin: 0.50
+    queue_size: 32000
+    compensate: True

@@ -96,7 +96,7 @@ ElasticArcFace:
     plus: True
 
 BroadFace:
-    in_features: 512
+    in_features: 128
     num_class: 72778
     scale_factor: 64.0
     margin: 0.50

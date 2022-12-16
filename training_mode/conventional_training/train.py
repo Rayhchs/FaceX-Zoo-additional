@@ -82,6 +82,11 @@ class FaceModel(torch.nn.Module):
         self.pretrain_state = pretrain_state
         if self.head_type.lower() == 'broadface':
             self.backbone.load_state_dict(self.pretrain_state)
+            self.model = LinearEmbedding(
+                self.backbone,
+                feature_size=512,
+                embedding_size=128,
+                l2norm_on_train=False)
 
     def forward(self, data, label):
         if self.head_type.lower() == 'adaface':
@@ -93,7 +98,7 @@ class FaceModel(torch.nn.Module):
             feat = F.normalize(output)
             pred = self.head.forward(feat, label)
         elif self.head_type.lower() == 'broadface':
-            feat, _ = self.backbone.forward(data)
+            feat, _ = self.model.forward(data)
             pred = self.head.forward(feat, label)
         else:
             feat, _ = self.backbone.forward(data)
@@ -191,6 +196,8 @@ def train(conf):
     criterion = torch.nn.CrossEntropyLoss().cuda(conf.device)
     backbone_factory = BackboneFactory(conf.backbone_type, conf.backbone_conf_file, conf.head_type)    
     head_factory = HeadFactory(conf.head_type, conf.head_conf_file)
+    if conf.head_type == 'BroadFace' and not conf.resume:
+        sys.exit("BroadFace can only be used for finetune")
     if not conf.head_type == 'BroadFace':
         model = FaceModel(backbone_factory, head_factory, conf)
 
